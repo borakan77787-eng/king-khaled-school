@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة أعذار طلاب مدرسة الملك خالد الثانوية</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #f0f2f5; color: #333; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1a4a72; margin-bottom: 20px; font-size: 22px; border-bottom: 2px solid #1a4a72; padding-bottom: 10px; }
+        .nav-tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 25px; }
+        .tab-btn { padding: 10px 20px; border: none; background: #e4e6eb; cursor: pointer; border-radius: 6px; font-weight: bold; transition: 0.3s; }
+        .tab-btn.active { background: #1a4a72; color: white; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+        .btn { background: #1a4a72; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn:hover { background: #133754; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-card h3 { font-size: 14px; color: #666; margin-bottom: 5px; }
+        .stat-card p { font-size: 22px; font-weight: bold; color: #1a4a72; }
+        .cards-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: relative; }
+        .card p { margin-bottom: 8px; font-size: 14px; }
+        .card-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+        .btn-action { flex: 1; min-width: 45%; padding: 6px; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-view { background: #17a2b8; width: 100%; flex: 100%; margin-bottom: 3px; }
+        .btn-accept { background: #28a745; }
+        .btn-reject { background: #dc3545; }
+        .btn-delete { background: #6c757d; }
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white; }
+        .status-pending { background: #ffc107; color: #000; }
+        .status-accepted { background: #28a745; }
+        .status-rejected { background: #dc3545; }
+        .reject-reason-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 8px; border-radius: 6px; color: #c53030; margin-top: 8px; font-size: 13px; }
+        
+        /* النوافذ المنبثقة */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; text-align: right; }
+        .modal-content img { max-width: 100%; height: auto; border-radius: 6px; margin-top: 10px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .close-btn { background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>منصة أعذار طلاب مدرسة الملك خالد الثانوية</h1>
+    
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('student-portal')">بوابة الطالب</button>
+        <button class="tab-btn" onclick="switchTab('track-portal')">متابعة الأعذار</button>
+        <button class="tab-btn" onclick="switchTab('admin-portal')">بوابة الإدارة</button>
+    </div>
+
+    <!-- بوابة الطالب -->
+    <div id="student-portal" class="section active">
+        <form id="absence-form">
+            <div class="form-group">
+                <label>رقم الهوية</label>
+                <input type="text" id="national-id" required maxlength="10">
+            </div>
+            <div class="form-group">
+                <label>اسم الطالب</label>
+                <input type="text" id="student-name" required>
+            </div>
+            <div class="form-group">
+                <label>رقم الصف (الشعبة)</label>
+                <input type="text" id="class-num" required>
+            </div>
+            <div class="form-group">
+                <label>نوع العذر</label>
+                <select id="reason-type" required>
+                    <option value="">اختر نوع العذر</option>
+                    <option value="عذر طبي">عذر طبي</option>
+                    <option value="حادث">حادث</option>
+                    <option value="ظرف عائلي">ظرف عائلي</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>تاريخ بداية الغياب</label>
+                <input type="date" id="start-date" onchange="calculateDays()" required>
+            </div>
+            <div class="form-group">
+                <label>تاريخ نهاية الغياب</label>
+                <input type="date" id="end-date" onchange="calculateDays()" required>
+            </div>
+            <div class="form-group">
+                <label>عدد أيام الغياب (تلقائي)</label>
+                <input type="text" id="days-count" readonly placeholder="0 أيام">
+            </div>
+            <div class="form-group">
+                <label>إرفاق العذر (صورة أو ملف)</label>
+                <input type="file" id="attachment" accept="image/*,application/pdf">
+            </div>
+            <button type="submit" class="btn">إرسال العذر</button>
+        </form>
+    </div>
+
+    <!-- بوابة الاستعلام -->
+    <div id="track-portal" class="section">
+        <div class="form-group">
+            <label>أدخل رقم الهوية لمتابعة الأعذار</label>
+            <input type="text" id="search-id" placeholder="10xxxxxxxx">
+        </div>
+        <button onclick="searchStatus()" class="btn">بحث</button>
+        <div id="search-results" class="cards-container" style="margin-top: 20px;"></div>
+    </div>
+
+    <!-- بوابة الإدارة -->
+    <div id="admin-portal" class="section">
+        <div id="admin-login">
+            <div class="form-group">
+                <label>أدخل الرقم السري للإدارة</label>
+                <input type="password" id="admin-pass">
+            </div>
+            <button onclick="loginAdmin()" class="btn">دخول</button>
+        </div>
+
+        <div id="admin-dashboard" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card"><h3>إجمالي الأعذار</h3><p id="total-count">0</p></div>
+                <div class="stat-card"><h3>الأعذار المقبولة</h3><p id="accepted-count">0</p></div>
+                <div class="stat-card"><h3>الأعذار المرفوضة</h3><p id="rejected-count">0</p></div>
+                <div class="stat-card"><h3>بانتظار المراجعة</h3><p id="pending-count">0</p></div>
+            </div>
+            <div id="admin-cards" class="cards-container"></div>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة عرض المرفق -->
+<div id="file-modal" class="modal">
+    <div class="modal-content" style="text-align: center;">
+        <h3>الملف المرفق للعذر</h3>
+        <div id="modal-body"></div>
+        <button onclick="closeModal('file-modal')" class="close-btn" style="margin-top: 15px;">إغلاق</button>
+    </div>
+</div>
+
+<!-- نافذة إدخال سبب الرفض -->
+<div id="reject-modal" class="modal">
+    <div class="modal-content">
+        <h3>سبب رفض العذر</h3>
+        <p style="margin-bottom: 10px; font-size: 13px; color: #666;">يرجى تدوين سبب الرفض ليظهر للطالب عند الاستعلام:</p>
+        <textarea id="reject-reason-input" rows="4" placeholder="اكتب سبب الرفض هنا..."></textarea>
+        <div class="modal-actions">
+            <button onclick="confirmReject()" class="btn btn-reject" style="width: auto; padding: 8px 20px;">تأكيد الرفض</button>
+            <button onclick="closeModal('reject-modal')" class="close-btn">إلغاء</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let excuses = JSON.parse(localStorage.getItem('school_excuses')) || [];
+    let currentRejectId = null;
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    function calculateDays() {
+        const start = new Date(document.getElementById('start-date').value);
+        const end = new Date(document.getElementById('end-date').value);
+        if (start && end && end >= start) {
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            document.getElementById('days-count').value = diffDays + ' أيام';
+        } else {
+            document.getElementById('days-count').value = '0 أيام';
+        }
+    }
+
+    document.getElementById('absence-form').onsubmit = function(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById('attachment');
+        const file = fileInput.files[0];
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                saveExcuse(event.target.result, file.type);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            saveExcuse(null, null);
+        }
+    };
+
+    function saveExcuse(fileData, fileType) {
+        const newExcuse = {
+            id: Date.now(),
+            nationalId: document.getElementById('national-id').value,
+            name: document.getElementById('student-name').value,
+            classNum: document.getElementById('class-num').value,
+            reason: document.getElementById('reason-type').value,
+            startDate: document.getElementById('start-date').value,
+            endDate: document.getElementById('end-date').value,
+            days: document.getElementById('days-count').value,
+            status: 'بانتظار المراجعة',
+            rejectReason: '',
+            fileData: fileData,
+            fileType: fileType
+        };
+        excuses.push(newExcuse);
+        localStorage.setItem('school_excuses', JSON.stringify(excuses));
+        alert('تم إرسال العذر بنجاح!');
+        document.getElementById('absence-form').reset();
+        document.getElementById('days-count').value = '';
+    }
+
+    function searchStatus() {
+        const searchId = document.getElementById('search-id').value;
+        const results = excuses.filter(e => e.nationalId === searchId);
+        const container = document.getElementById('search-results');
+        container.innerHTML = '';
+
+        if (results.length === 0) {
+            container.innerHTML = '<p>لا توجد أعذار مسجلة لهذا الرقم.</p>';
+            return;
+        }
+
+        results.forEach(item => {
+            let rejectHtml = (item.status === 'مرفوض' && item.rejectReason) 
+                ? `<div class="reject-reason-box"><strong>سبب الرفض:</strong> ${item.rejectReason}</div>` 
+                : '';
+
+            container.innerHTML += `
+                <div class="card">
+                    <p><strong>الاسم:</strong> ${item.name}</p>
+                    <p><strong>نوع العذر:</strong> ${item.reason}</p>
+                    <p><strong>المدة:</strong> ${item.days}</p>
+                    <p><strong>الحالة:</strong> <span class="status-badge ${getStatusClass(item.status)}">${item.status}</span></p>
+                    ${rejectHtml}
+                </div>
+            `;
+        });
+    }
+
+    function loginAdmin() {
+        const pass = document.getElementById('admin-pass').value;
+        if (pass === '574055') {
+            document.getElementById('admin-login').style.display = 'none';
+            document.getElementById('admin-dashboard').style.display = 'block';
+            renderAdminDashboard();
+        } else {
+            alert('الرقم السري غير صحيح!');
+        }
+    }
+
+    function renderAdminDashboard() {
+        document.getElementById('total-count').innerText = excuses.length;
+        document.getElementById('accepted-count').innerText = excuses.filter(e => e.status === 'مقبول').length;
+        document.getElementById('rejected-count').innerText = excuses.filter(e => e.status === 'مرفوض').length;
+        document.getElementById('pending-count').innerText = excuses.filter(e => e.status === 'بانتظار المراجعة').length;
+
+        const container = document.getElementById('admin-cards');
+        container.innerHTML = '';
+
+        excuses.forEach(item => {
+            let rejectHtml = (item.status === 'مرفوض' && item.rejectReason) 
+                ? `<div class="reject-reason-box"><strong>سبب الرفض:</strong> ${item.rejectReason}</div>` 
+                : '';
+
+            container.innerHTML += `
+                <div class="card">
+                    <p><strong>الهوية:</strong> ${item.nationalId}</p>
+                    <p><strong>الاسم:</strong> ${item.name}</p>
+                    <p><strong>الصف:</strong> ${item.classNum}</p>
+                    <p><strong>السبب:</strong> ${item.reason}</p>
+                    <p><strong>الفترة:</strong> من ${item.startDate} إلى ${item.endDate} (${item.days})</p>
+                    <p><strong>الحالة:</strong> <span class="status-badge ${getStatusClass(item.status)}">${item.status}</span></p>
+                    ${rejectHtml}
+                    <div class="card-actions">
+                        <button onclick="viewAttachment(${item.id})" class="btn-action btn-view">📄 عرض العذر المرفق</button>
+                        <button onclick="updateStatus(${item.id}, 'مقبول')" class="btn-action btn-accept">قبول</button>
+                        <button onclick="openRejectModal(${item.id})" class="btn-action btn-reject">رفض</button>
+                        <button onclick="deleteExcuse(${item.id})" class="btn-action btn-delete">حذف</button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    function viewAttachment(id) {
+        const item = excuses.find(e => e.id === id);
+        const modalBody = document.getElementById('modal-body');
+        
+        if (!item || !item.fileData) {
+            modalBody.innerHTML = '<p style="margin:20px 0;">لا يوجد مرفق مصاحب لهذا العذر.</p>';
+        } else if (item.fileType.startsWith('image/')) {
+            modalBody.innerHTML = `<img src="${item.fileData}" alt="صورة العذر">`;
+        } else {
+            modalBody.innerHTML = `<iframe src="${item.fileData}" style="width:100%; height:400px; border:none; margin-top:10px;"></iframe>`;
+        }
+        
+        document.getElementById('file-modal').style.display = 'flex';
+    }
+
+    function openRejectModal(id) {
+        currentRejectId = id;
+        document.getElementById('reject-reason-input').value = '';
+        document.getElementById('reject-modal').style.display = 'flex';
+    }
+
+    function confirmReject() {
+        const reasonText = document.getElementById('reject-reason-input').value.trim();
+        if (!reasonText) {
+            alert('يرجى كتابة سبب الرفض.');
+            return;
+        }
+
+        excuses = excuses.map(e => e.id === currentRejectId ? {...e, status: 'مرفوض', rejectReason: reasonText} : e);
+        localStorage.setItem('school_excuses', JSON.stringify(excuses));
+        
+        closeModal('reject-modal');
+        renderAdminDashboard();
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    function updateStatus(id, newStatus) {
+        excuses = excuses.map(e => {
+            if (e.id === id) {
+                return {...e, status: newStatus, rejectReason: newStatus === 'مقبول' ? '' : e.rejectReason};
+            }
+            return e;
+        });
+        localStorage.setItem('school_excuses', JSON.stringify(excuses));
+        renderAdminDashboard();
+    }
+
+    function deleteExcuse(id) {
+        excuses = excuses.filter(e => e.id !== id);
+        localStorage.setItem('school_excuses', JSON.stringify(excuses));
+        renderAdminDashboard();
+    }
+
+    function getStatusClass(status) {
+        if (status === 'مقبول') return 'status-accepted';
+        if (status === 'مرفوض') return 'status-rejected';
+        return 'status-pending';
+    }
+</script>
+</body>
+</html>
