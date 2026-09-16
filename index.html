@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>منصة أعذار طلاب مدرسة الملك خالد الثانوية</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
         body { background-color: #f0f2f5; color: #333; padding: 20px; }
@@ -38,7 +41,6 @@
         .status-rejected { background: #dc3545; }
         .reject-reason-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 8px; border-radius: 6px; color: #c53030; margin-top: 8px; font-size: 13px; }
         
-        /* النوافذ المنبثقة */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: white; padding: 20px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; text-align: right; }
         .modal-content img { max-width: 100%; height: auto; border-radius: 6px; margin-top: 10px; }
@@ -97,7 +99,7 @@
                 <label>إرفاق العذر (صورة أو ملف)</label>
                 <input type="file" id="attachment" accept="image/*,application/pdf">
             </div>
-            <button type="submit" class="btn">إرسال العذر</button>
+            <button type="submit" id="submit-btn" class="btn">إرسال العذر</button>
         </form>
     </div>
 
@@ -133,7 +135,6 @@
     </div>
 </div>
 
-<!-- نافذة عرض المرفق -->
 <div id="file-modal" class="modal">
     <div class="modal-content" style="text-align: center;">
         <h3>الملف المرفق للعذر</h3>
@@ -142,7 +143,6 @@
     </div>
 </div>
 
-<!-- نافذة إدخال سبب الرفض -->
 <div id="reject-modal" class="modal">
     <div class="modal-content">
         <h3>سبب رفض العذر</h3>
@@ -156,8 +156,33 @@
 </div>
 
 <script>
-    let excuses = JSON.parse(localStorage.getItem('school_excuses')) || [];
-    let currentRejectId = null;
+    // إعدادات قاعدة البيانات السحابية (Firebase)
+    const firebaseConfig = {
+        databaseURL: "https://school-excuses-default-rtdb.firebaseio.com" // رابط افتراضي عام للتجربة
+    };
+    
+    // إعداد الاتصال
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    let excusesList = [];
+    let currentRejectKey = null;
+
+    // الاستماع المباشر للتغيرات في قاعدة البيانات السحابية
+    db.ref('excuses').on('value', (snapshot) => {
+        const data = snapshot.val();
+        excusesList = [];
+        if (data) {
+            Object.keys(data).forEach(key => {
+                excusesList.push({ key: key, ...data[key] });
+            });
+        }
+        if (document.getElementById('admin-dashboard').style.display === 'block') {
+            renderAdminDashboard();
+        }
+    });
 
     function switchTab(tabId) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -180,23 +205,26 @@
 
     document.getElementById('absence-form').onsubmit = function(e) {
         e.preventDefault();
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'جاري الإرسال السحابي...';
+
         const fileInput = document.getElementById('attachment');
         const file = fileInput.files[0];
 
         if (file) {
             const reader = new FileReader();
             reader.onload = function(event) {
-                saveExcuse(event.target.result, file.type);
+                saveExcuseToCloud(event.target.result, file.type);
             };
             reader.readAsDataURL(file);
         } else {
-            saveExcuse(null, null);
+            saveExcuseToCloud(null, null);
         }
     };
 
-    function saveExcuse(fileData, fileType) {
+    function saveExcuseToCloud(fileData, fileType) {
         const newExcuse = {
-            id: Date.now(),
             nationalId: document.getElementById('national-id').value,
             name: document.getElementById('student-name').value,
             classNum: document.getElementById('class-num').value,
@@ -206,19 +234,27 @@
             days: document.getElementById('days-count').value,
             status: 'بانتظار المراجعة',
             rejectReason: '',
-            fileData: fileData,
-            fileType: fileType
+            fileData: fileData || '',
+            fileType: fileType || '',
+            timestamp: Date.now()
         };
-        excuses.push(newExcuse);
-        localStorage.setItem('school_excuses', JSON.stringify(excuses));
-        alert('تم إرسال العذر بنجاح!');
-        document.getElementById('absence-form').reset();
-        document.getElementById('days-count').value = '';
+
+        db.ref('excuses').push(newExcuse).then(() => {
+            alert('تم إرسال العذر بنجاح إلى السحابة!');
+            document.getElementById('absence-form').reset();
+            document.getElementById('days-count').value = '';
+            document.getElementById('submit-btn').disabled = false;
+            document.getElementById('submit-btn').innerText = 'إرسال العذر';
+        }).catch((err) => {
+            alert('حدث خطأ أثناء الإرسال: ' + err.message);
+            document.getElementById('submit-btn').disabled = false;
+            document.getElementById('submit-btn').innerText = 'إرسال العذر';
+        });
     }
 
     function searchStatus() {
-        const searchId = document.getElementById('search-id').value;
-        const results = excuses.filter(e => e.nationalId === searchId);
+        const searchId = document.getElementById('search-id').value.trim();
+        const results = excusesList.filter(e => e.nationalId === searchId);
         const container = document.getElementById('search-results');
         container.innerHTML = '';
 
@@ -256,15 +292,15 @@
     }
 
     function renderAdminDashboard() {
-        document.getElementById('total-count').innerText = excuses.length;
-        document.getElementById('accepted-count').innerText = excuses.filter(e => e.status === 'مقبول').length;
-        document.getElementById('rejected-count').innerText = excuses.filter(e => e.status === 'مرفوض').length;
-        document.getElementById('pending-count').innerText = excuses.filter(e => e.status === 'بانتظار المراجعة').length;
+        document.getElementById('total-count').innerText = excusesList.length;
+        document.getElementById('accepted-count').innerText = excusesList.filter(e => e.status === 'مقبول').length;
+        document.getElementById('rejected-count').innerText = excusesList.filter(e => e.status === 'مرفوض').length;
+        document.getElementById('pending-count').innerText = excusesList.filter(e => e.status === 'بانتظار المراجعة').length;
 
         const container = document.getElementById('admin-cards');
         container.innerHTML = '';
 
-        excuses.forEach(item => {
+        excusesList.forEach(item => {
             let rejectHtml = (item.status === 'مرفوض' && item.rejectReason) 
                 ? `<div class="reject-reason-box"><strong>سبب الرفض:</strong> ${item.rejectReason}</div>` 
                 : '';
@@ -279,18 +315,18 @@
                     <p><strong>الحالة:</strong> <span class="status-badge ${getStatusClass(item.status)}">${item.status}</span></p>
                     ${rejectHtml}
                     <div class="card-actions">
-                        <button onclick="viewAttachment(${item.id})" class="btn-action btn-view">📄 عرض العذر المرفق</button>
-                        <button onclick="updateStatus(${item.id}, 'مقبول')" class="btn-action btn-accept">قبول</button>
-                        <button onclick="openRejectModal(${item.id})" class="btn-action btn-reject">رفض</button>
-                        <button onclick="deleteExcuse(${item.id})" class="btn-action btn-delete">حذف</button>
+                        <button onclick="viewAttachment('${item.key}')" class="btn-action btn-view">📄 عرض العذر المرفق</button>
+                        <button onclick="updateStatus('${item.key}', 'مقبول')" class="btn-action btn-accept">قبول</button>
+                        <button onclick="openRejectModal('${item.key}')" class="btn-action btn-reject">رفض</button>
+                        <button onclick="deleteExcuse('${item.key}')" class="btn-action btn-delete">حذف</button>
                     </div>
                 </div>
             `;
         });
     }
 
-    function viewAttachment(id) {
-        const item = excuses.find(e => e.id === id);
+    function viewAttachment(key) {
+        const item = excusesList.find(e => e.key === key);
         const modalBody = document.getElementById('modal-body');
         
         if (!item || !item.fileData) {
@@ -304,8 +340,8 @@
         document.getElementById('file-modal').style.display = 'flex';
     }
 
-    function openRejectModal(id) {
-        currentRejectId = id;
+    function openRejectModal(key) {
+        currentRejectKey = key;
         document.getElementById('reject-reason-input').value = '';
         document.getElementById('reject-modal').style.display = 'flex';
     }
@@ -317,32 +353,29 @@
             return;
         }
 
-        excuses = excuses.map(e => e.id === currentRejectId ? {...e, status: 'مرفوض', rejectReason: reasonText} : e);
-        localStorage.setItem('school_excuses', JSON.stringify(excuses));
-        
-        closeModal('reject-modal');
-        renderAdminDashboard();
+        db.ref('excuses/' + currentRejectKey).update({
+            status: 'مرفوض',
+            rejectReason: reasonText
+        }).then(() => {
+            closeModal('reject-modal');
+        });
     }
 
     function closeModal(modalId) {
         document.getElementById(modalId).style.display = 'none';
     }
 
-    function updateStatus(id, newStatus) {
-        excuses = excuses.map(e => {
-            if (e.id === id) {
-                return {...e, status: newStatus, rejectReason: newStatus === 'مقبول' ? '' : e.rejectReason};
-            }
-            return e;
+    function updateStatus(key, newStatus) {
+        db.ref('excuses/' + key).update({
+            status: newStatus,
+            rejectReason: newStatus === 'مقبول' ? '' : undefined
         });
-        localStorage.setItem('school_excuses', JSON.stringify(excuses));
-        renderAdminDashboard();
     }
 
-    function deleteExcuse(id) {
-        excuses = excuses.filter(e => e.id !== id);
-        localStorage.setItem('school_excuses', JSON.stringify(excuses));
-        renderAdminDashboard();
+    function deleteExcuse(key) {
+        if (confirm('هل أنت تأكد من حذف هذا العذر؟')) {
+            db.ref('excuses/' + key).remove();
+        }
     }
 
     function getStatusClass(status) {
